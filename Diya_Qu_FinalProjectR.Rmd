@@ -1,0 +1,424 @@
+---
+title: "FinalProjectR"
+author: "Diya Qu"
+date: "2023-04-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#load dataset
+library(dplyr)
+library(caret)
+library(readr)
+.libPaths()
+version
+#update.packages(ask = FALSE, checkBuilt = TRUE)
+version
+withAutoprint({memory.size()
+               memory.size()
+               memory.size(TRUE)
+               memory.limit()
+               })
+# memory.limit(1e+10)
+gc()
+ls
+rm(list=setdiff(ls(),"h1b"))
+h1b <- read.csv("C:/Users/14129/OneDrive - University of Pittsburgh/Desktop/Second Semester/Programming R/h1b_2015-2019/H1B Correct/FiveYear.csv")
+head(h1b)
+#check all the variables
+names(h1b)
+#check the missing value in each variable
+sum(is.na(h1b))
+#check the missing value in each column
+colSums(is.na(h1b))
+#check how many unique values in JOB_TITLE and JOB_NAME
+length(unique(h1b$JOB_TITLE))
+length(unique(h1b$JOB_NAME))
+```
+
+```{r}
+# Because the number of unique values in JOB_NAME is smaller, we will use JOB_NAME to group the data.
+#drop the columns with high missing value, useless columns, and repeated columns.
+h1b <- h1b[,-c(1,2,3,4,5,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,29,31,33,34,35,36,37,38,40,41)]
+#CASE_STATUS,EMPLOYER_NAME,WAGE,YEAR,SOC_NAME,WORKSITE_STATE        
+#check the number of columns
+names(h1b)
+#change colunm name PW_WAGE_SOURCE_YEAR to YEAR
+names(h1b)[names(h1b) == "PW_WAGE_SOURCE_YEAR"] <- "YEAR"
+#change job_NAME to JOB_NAME
+names(h1b)[names(h1b) == "SOC_NAME"] <- "JOB_NAME"
+unique(h1b$CASE_STATUS)
+#check the missing value in each column
+colSums(is.na(h1b)) #only year has missing value
+#drop all the rows with missing value
+h1b <- na.omit(h1b)
+#check the unique values of YEAR
+unique(h1b$YEAR)
+#remove the rows with year less than 2015
+h1b <- h1b[h1b$YEAR >= 2011,]
+#check the unique values of YEAR
+unique(h1b$YEAR)
+#check if there is any missing value
+sum(is.na(h1b)) #clean data now
+#check the head
+head(h1b)
+#check the unique values of JOB_NAME
+length(unique(h1b$JOB_NAME))
+```
+```{r}
+#use bar chart to show the count of applications by year
+library(ggplot2)
+bar <- ggplot(h1b, aes(x = YEAR)) + 
+  geom_bar(fill = "royalblue") + 
+  labs(
+    title = "Count of Applications by Year",   # Chart title
+    x = "Year",  # X-axis label
+    y = "Number of Applications"  # Y-axis label
+  ) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 11))
+
+print(bar)
+```
+
+```{r}
+#use pie chart to show the distribution of case status
+library(ggplot2)
+library(RColorBrewer)
+#show all colors in RColorBrewer
+display.brewer.all()
+#use 'paired' color palette and add Name "distribution of case status"
+pie <- ggplot(h1b, aes(x = "", fill = CASE_STATUS)) +
+  geom_bar(width = 1) +
+  coord_polar("y", start = 0) +
+  scale_fill_brewer(palette = "Paired") +
+  labs(fill = "Case Status", title = "Distribution of Case Status") +
+  theme(legend.position = "bottom", legend.text = element_text(size = 12))
+pie
+```
+
+```{r}
+# Aggregate data by year and case status
+library(dplyr)
+h1b_year <- h1b %>% 
+  group_by(YEAR, CASE_STATUS) %>% 
+  summarise(count = n()) %>% 
+  mutate(percentage = count / sum(count) * 100)
+#check the head
+head(h1b_year)
+```
+
+```{r}
+# Create a line graph to show the case status change over the years
+line <- ggplot(h1b_year, aes(x = YEAR, y = percentage, color = CASE_STATUS)) +
+  geom_line(size = 2) +
+  geom_point(size = 7) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 11)) +
+  scale_color_brewer(palette = "Paired") +
+  labs(x = "Year", y = "Percentage", title = "Case Status of H1B Visa Applications Over the Years")
+line
+```
+
+```{r}
+
+# groupe by JOB_NAME in descending order
+library (dplyr)
+h1b_job <- h1b %>% 
+  group_by(JOB_NAME) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+#display the top 20 JOB_NAME
+head(h1b_job, 20)
+# display the top 10 JOB_NAME
+head(h1b_job, 10)
+# 1 SOFTWARE DEVELOPERS, APPLICATIONS                  221777
+# 2 COMPUTER SYSTEMS ANALYSTS                          215348
+# 3 COMPUTER PROGRAMMERS                               171963
+# 4 COMPUTER OCCUPATIONS, ALL OTHER                     54675
+# 5 SOFTWARE DEVELOPERS, SYSTEMS SOFTWARE               39355
+# 6 MANAGEMENT ANALYSTS                                 28115
+# 7 ACCOUNTANTS AND AUDITORS                            22113
+# 8 FINANCIAL ANALYSTS                                  19398
+# 9 COMPUTER SYSTEMS ANALYST                            17426
+# 10 MARKET RESEARCH ANALYSTS AND MARKETING SPECIALISTS  15577
+```
+
+
+```{r}
+#use bar chart to show the count of top 20 JOB_NAME in horizontal
+bar <- ggplot(h1b_job[1:20,], aes(x = reorder(JOB_NAME, count), y = count)) +
+  geom_bar(stat = "identity", fill = "royalblue") +
+  coord_flip() +
+  theme(legend.position = "bottom", legend.text = element_text(size = 11)) +
+  labs(x = "JOB_NAME", y = "Count", title = "Top 20 JOB_NAME")
+  bar
+
+#check the size of CASE_STATUS
+length(h1b$CASE_STATUS)
+```
+We see that the top 20 JOB_NAME are all software related jobs.
+
+```{r}
+#choose the top 10 JOB_NAME to show the count change over the years
+top_10_jobs <- c("SOFTWARE DEVELOPERS, APPLICATIONS", "COMPUTER SYSTEMS ANALYSTS", "COMPUTER PROGRAMMERS", "COMPUTER OCCUPATIONS, ALL OTHER", 
+"SOFTWARE DEVELOPERS, SYSTEMS SOFTWARE", "MANAGEMENT ANALYSTS", "ACCOUNTANTS AND AUDITORS", "FINANCIAL ANALYSTS", "COMPUTER SYSTEMS ANALYST",
+ "MARKET RESEARCH ANALYSTS AND MARKETING SPECIALISTS")
+ # Aggregate the percentage of the top 10 JOB_NAME by year and case status
+h1b_job_year <- h1b %>% 
+  filter(JOB_NAME %in% top_10_jobs) %>% 
+  group_by(YEAR, JOB_NAME) %>% 
+  summarise(count = n()) %>% 
+  mutate(percentage = count / sum(count) * 100)
+
+#use line graph to show the percentage for each JOB_NAME change over the years
+line <- ggplot(h1b_job_year, aes(x = YEAR, y = percentage, color = JOB_NAME)) +
+  geom_line(size = 2) +
+  geom_point(size = 7) +
+  theme(legend.position = "right", legend.text = element_text(size = 13)) +
+  scale_color_brewer(palette = "Paired") +
+  labs(x = "Year", y = "Percentage", title = "Top 10 JOB_NAME")
+line
+
+length(h1b$CASE_STATUS)
+```
+We see that the number of applications for the top 10 jobs have been increasing over the years. 
+
+
+```{r}
+#Which employers file the most petitions each year?
+h1b_employer <- h1b %>% 
+  group_by(EMPLOYER_NAME) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+#display the top 20 EMPLOYER_NAME
+head(h1b_employer, 10)
+#use bar chart to show the count of top 20 EMPLOYER_NAME in horizontal
+bar <- ggplot(h1b_employer[1:20,], aes(x = reorder(EMPLOYER_NAME, count), y = count)) +
+  geom_bar(stat = "identity", fill = "#b2df8a") +
+  coord_flip() +
+  theme(legend.position = "bottom", legend.text = element_text(size = 11)) +
+  labs(x = "EMPLOYER_NAME", y = "Count", title = "Top 20 EMPLOYER_NAME")
+  bar
+length(h1b$CASE_STATUS)
+```
+
+It does not surprise me that the top 2 employers are all Indian companies.
+
+```{r}
+#Let us say we want to work as a software developer in the US, where should we go?
+#change the state abbreviation to state full name
+convert_state <- function(state_abb) {
+  state_full <- state.name[match(state_abb, state.abb)]
+  return(state_full)
+}
+
+# Apply the function to your data
+h1b$STATE <- sapply(h1b$WORKSITE_STATE, convert_state)
+#Aggregate the JOB_NAME contain "software developer" by state
+h1b_state <- h1b %>% 
+  filter(grepl("software developer", JOB_NAME, ignore.case = TRUE)) %>% 
+  group_by(STATE) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+
+#use bar chart to show the count of top 5 EMPLOYER_STATE in horizontal in order
+
+bar <- ggplot(h1b_state[1:5,], aes(x = reorder(STATE, -count), y = count, fill = STATE)) +
+  geom_bar(stat = "identity") +
+  labs(x = "State", y = "Count", title = "Top 5 Employer States") +
+  scale_fill_brewer(palette = "Paired") +
+  theme_bw(base_size = 13) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 13))
+  bar
+
+
+
+```
+
+```{r}
+h1b_state <- h1b %>% 
+  group_by(STATE) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+  #use bar chart to show the count of top 5 EMPLOYER_STATE in horizontal in order
+bar <- ggplot(h1b_state[1:5,], aes(x = reorder(STATE, -count), y = count, fill = STATE)) +
+  geom_bar(stat = "identity") +
+  labs(x = "State", y = "Count", title = "Top 5 Employer States") +
+  scale_fill_brewer(palette = "Paired") +
+  theme_bw(base_size = 13) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 13))
+  bar
+length(h1b$CASE_STATUS)
+```
+
+# Data modeling
+
+
+```{r}
+# object.size(h1b)
+# x <- rnorm(1000)
+
+# # remove the variable
+# rm(x)
+# object.size(h1b)
+# # print(x)
+# head(h1b)
+#check the data
+head(h1b)
+length(h1b$CASE_STATUS)
+# Cannot allocate vecter of size 44.8 Gb
+# remove the employer who has less than 100 applicants
+h1b <- h1b %>% 
+  group_by(EMPLOYER_NAME) %>% 
+  filter(n() > 100)
+length(h1b$CASE_STATUS)
+#remove the job name who has less than 500 applicants
+h1b <- h1b %>% 
+  group_by(JOB_NAME) %>% 
+  filter(n() > 100)
+length(h1b$CASE_STATUS)
+#remove the state who has less than 1000 applicants
+h1b <- h1b %>% 
+  group_by(STATE) %>% 
+  filter(n() > 200)
+length(h1b$CASE_STATUS)
+head(h1b,20)
+#check the size of h1b
+dim(h1b)
+#check if there is any missing data
+sum(is.na(h1b))
+#remove the missing data
+h1b <- na.omit(h1b)
+#check the size of h1b
+dim(h1b)
+#for convenience, we class the case status to 'certified' and 'denied' as 1 and 0
+#check the unique value of case status
+unique(h1b$CASE_STATUS)
+h1b$CASE_STATUS <- ifelse(h1b$CASE_STATUS == 'CERTIFIED', 1, 0)
+#check unique value of the case status
+unique(h1b$CASE_STATUS)
+```
+
+
+```{r}
+#calculate the percentage of certified
+certified = sum(h1b$CASE_STATUS == 1)/length(h1b$CASE_STATUS)
+certified #0.8955
+```
+```{r}
+#split the data into training and testing set
+
+# split the data into training and testing set
+set.seed(123)
+
+# 70% rows in training data 
+train_indices <- sample(row.names(h1b), length(h1b$CASE_STATUS)*0.7)
+train <- h1b[train_indices, ]
+
+# Rest of rows in test data
+test_indices <- setdiff(row.names(h1b), train_indices)
+test <- h1b[test_indices, ]
+
+# check if there is any missing data in training set
+sum(is.na(train))
+#check training set
+head(train)
+# fit the model
+library(caret)
+# log_model <- train(factor(CASE_STATUS)~., data = train, method = "glm")
+
+
+
+```
+
+```{r}
+#predict the test set results
+log_pred <- predict(log_model, test, type ='raw')
+#make the confusion matrix
+log_confusion <- confusionMatrix(as.factor(log_pred), as.factor(test$CASE_STATUS))
+#check the accuracy
+log_accuracy <- log_confusion$overall['Accuracy']
+```
+
+  
+```{r}
+#use random forest to predict the case status
+library(caret)
+
+#split the data into training and testing set
+set.seed(123)
+
+# Fitting the model again
+rf_model <- train(factor(CASE_STATUS)~.,data = train, method = 'rf')
+#plot
+plot(varImp(rf_model))
+#Prediction
+rf_pred = predict(rf_model,test, type = 'raw')
+#make the confusion matrix
+rf_confusion <- confusionMatrix(as.factor(rf_pred), as.factor(test$CASE_STATUS))
+rf_confusion
+
+rf_accuracy <- rf_confusion$overall['Accuracy']
+rf_accuracy
+
+```
+  
+```{r}
+  #use decision tree to predict the case status
+  #split the data into training and testing set
+  set.seed(123)
+  #fit the model
+  library(rpart)
+  dt_model = rpart(formula = CASE_STATUS ~ .,
+                data = train,
+                control = rpart.control(minsplit = 1))
+  #predict the test set results
+  dt_y_pred = predict(dt_model, newdata = test[-2])
+  #make the confusion matrix
+  cm_dt = table(test[, 2], dt_y_pred)
+  #check the accuracy
+  accuracy_dt = sum(diag(cm))/sum(cm)
+```
+
+```{r}
+  #let us compare the accuracy of the three models
+  accuracy = c(accuracy_log, accuracy_rf, accuracy_dt)
+  barplot(accuracy, main = 'Accuracy of the models', names.arg = c('Logistic Regression', 'Random Forest', 'Decision Tree'), col = 'red')
+```
+
+# Conclusion
+
+```{r}
+#ROC curve
+library(ROCR)
+log_perf <- performance(log_pred,"tpr","fpr")
+plot(perf)
+
+rm_perf <- performance(rf_pred,"tpr","fpr")
+plot(perf)
+
+dt_perf <- performance(dt_y_pred,"tpr","fpr")
+plot(perf)
+```
+
+```{r}
+#compare the ROC curve
+#compare the ROC curve
+plot(log_perf, colorize = TRUE)
+plot(rm_perf, add= TRUE, colorize = TRUE)
+plot(dt_perf, add= TRUE, colorize = TRUE)
+legend(0.6, 0.4, c("Logistic Regression", "Random Forest", "Decision Tree"), 
+       col = c("red", "blue", "green"), lty = 1:3, cex = 0.8)  
+```
+
+  
+
